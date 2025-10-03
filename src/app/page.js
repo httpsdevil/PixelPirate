@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-// --- SVG Icons (No changes needed, they are perfect) ---
+// SVG Icons
 const PinterestIcon = () => (<svg width="28" height="28" viewBox="0 0 24 24" fill="#ef4444" className="text-red-500"><path d="M7.54 23.15q-.2-2.05.26-3.93L9 14.04a7 7 0 0 1-.35-2.07c0-1.68.81-2.88 2.09-2.88.88 0 1.53.62 1.53 1.8q0 .57-.23 1.28l-.52 1.72q-.15.5-.15.92c0 1.2.91 1.87 2.08 1.87 2.09 0 3.57-2.16 3.57-4.96 0-3.12-2.04-5.12-5.05-5.12-3.36 0-5.49 2.19-5.49 5.24 0 1.22.38 2.36 1.11 3.14-.24.41-.5.48-.88.48-1.2 0-2.34-1.69-2.34-4 0-4 3.2-7.17 7.68-7.17 4.7 0 7.66 3.29 7.66 7.33s-2.88 7.15-5.98 7.15a3.8 3.8 0 0 1-3.06-1.48l-.62 2.5a11 11 0 0 1-1.62 3.67A11.98 11.98 0 0 0 24 12a11.99 11.99 0 1 0-24 0 12 12 0 0 0 7.54 11.15"></path></svg>);
 const InstagramIcon = () => (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#insta-gradient-stroke)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" strokeWidth="2.5"></line></svg>);
 const YouTubeIcon = () => (<svg width="28" height="28" viewBox="0 0 28 28" fill="#dc2626" className="text-red-600"><path d="M27.5 7.6s-.3-2.1-1.2-3c-1.1-1.2-2.4-1.2-3-1.3C19.3 3 14 3 14 3s-5.3 0-9.3.3c-.6.1-1.9.1-3 1.3-1 1-1.2 3-1.2 3S.5 10 .5 12.4v3.2c0 2.4.3 4.8.3 4.8s.3 2.1 1.2 3c1.1 1.2 2.6 1.2 3.3 1.3 2.5.2 8.5.3 8.5.3s5.3 0 9.3-.3c.6-.1 1.9-.1 3-1.3 1-1 1.2-3 1.2-3s.3-2.4.3-4.8v-3.2c0-2.4-.3-4.8-.3-4.8zM11.2 18.2V9.8L18.5 14l-7.3 4.2z"></path></svg>);

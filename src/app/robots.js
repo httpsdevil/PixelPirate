@@ -4,6 +4,6 @@ export default function robots() {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://pixelpirate.vercel.app/sitemap.xml', // IMPORTANT: Change this to your actual domain
+    sitemap: 'https://pixelpirate.vercel.app/sitemap.xml',
   };
 }
