@@ -42,6 +42,7 @@ async function getInstagramImages(username) {
 
 async function getPinterestImages(url) {
     try {
+        url = url.toLowerCase();
         const usernameMatch = url.match(/pinterest\.com\/([a-zA-Z0-9_]+)/);
         const username = usernameMatch ? usernameMatch[1].replace('/', '') : null;
         const { data: html } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
