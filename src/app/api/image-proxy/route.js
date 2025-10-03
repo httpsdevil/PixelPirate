@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 
 export async function GET(request) {
-    // Get the 'url' parameter from the request
     const { searchParams } = new URL(request.url);
     const url = searchParams.get('url');
 
@@ -12,26 +11,34 @@ export async function GET(request) {
     }
 
     try {
-        // Fetch the image from the Instagram CDN URL
+        // --- THIS IS THE MODIFIED PART ---
         const response = await axios.get(url, {
-            responseType: 'arraybuffer', // Get the image data as a buffer
+            responseType: 'arraybuffer',
+            headers: {
+                // Add a browser-like User-Agent
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                // Add the Referer header - this is often the key to unblocking images
+                'Referer': 'https://www.instagram.com/'
+            }
         });
-
-        // Get the content type from the original response
+        // --- END OF MODIFIED PART ---
+        
         const contentType = response.headers['content-type'];
 
-        // Return the image data in a NextResponse
         return new NextResponse(response.data, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
-                // Optional: Add caching headers
                 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate',
             },
         });
 
     } catch (error) {
         console.error('Image proxy error:', error.message);
-        return NextResponse.json({ error: 'Failed to proxy image' }, { status: 500 });
+        // Provide a more specific error message if possible
+        if (error.response) {
+            console.error(`Proxy request failed with status: ${error.response.status}`);
+        }
+        return NextResponse.json({ error: 'Failed to proxy image due to server block.' }, { status: 500 });
     }
 }
