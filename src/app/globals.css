@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* ▼▼▼ ADD THIS NEW RULE AT THE TOP ▼▼▼ */
+@font-face {
+  font-family: 'MyCustomFont'; /* Give your font a name */
+  src: url('/fonts/ComicNeueSansID.ttf') format('opentype');          /* put font file in public/fonts and just change this name here thats it*/
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; /* This helps with performance */
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -22,5 +31,6 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* ▼▼▼ CHANGE THIS LINE ▼▼▼ */
+  font-family: 'MyCustomFont', sans-serif; /* Use your new font name, with a fallback */
 }

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Name | Software Engineer</title>
+    <meta name="description" content="Portfolio of a passionate software engineer.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+    
+    <!-- React & Babel for JSX -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Animation & Smooth Scroll Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.27/bundled/lenis.min.js"></script>
+
+    <style>
+        /* Custom styles for animations and aesthetics */
+        :root {
+            --font-heading: 'Clash Display', sans-serif;
+            --font-body: 'Satoshi', sans-serif;
+        }
+        body {
+            font-family: var(--font-body);
+            background-color: #0a0a0a;
+        }
+        .font-heading { font-family: var(--font-heading); }
+        .font-body { font-family: var(--font-body); }
+
+        .selection\:bg-fuchsia-400::selection { background-color: #f0abfc; }
+        .selection\:text-black::selection { color: black; }
+        
+        .letter { display: inline-block; }
+
+        .project-card img {
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .project-card:hover img {
+            transform: scale(1.05);
+        }
+        .skill-tag {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .skill-tag:hover {
+            background-color: white;
+            color: black;
+        }
+        .gemini-modal-backdrop {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        .gemini-modal-content {
+            animation: slideInUp 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    </style>
+</head>
+<body class="bg-black">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Ensure libraries from CDN are available
+        const { useEffect, useRef, useState, useCallback } = React;
+
+        // --- Gemini API Helper ---
+        const callGeminiAPI = async (prompt) => {
+            const apiKey = ""; // Leave empty as per instructions
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error.message}`);
+                }
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    return candidate.content.parts[0].text;
+                }
+                throw new Error("Invalid response structure from Gemini API.");
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                throw error;
+            }
+        };
+
+
+        // --- SVG Icon Components ---
+        const GitHubIcon = (props) => (
+          <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.ทททv-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        );
+
+        const LinkedInIcon = (props) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+            </svg>
+        );
+
+        const ArrowRightIcon = (props) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+        );
+        const SparklesIcon = (props) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.624l-.219.669-.219-.669a2.25 2.25 0 00-1.635-1.636l-.668-.219.668-.219a2.25 2.25 0 001.636-1.635l.219-.668.219.668a2.25 2.25 0 001.636 1.636l.668.219-.668.219a2.25 2.25 0 00-1.635 1.636z" />
+            </svg>
+        );
+
+        // --- Reusable Components ---
+        const Nav = ({ onSectionClick }) => {
+            // ... existing Nav code ...
+            const navRef = useRef(null);
+            useEffect(() => {
+                const showAnim = gsap.from(navRef.current, { 
+                  yPercent: -100,
+                  paused: true,
+                  duration: 0.2
+                }).progress(1);
+
+                ScrollTrigger.create({
+                  start: "top top",
+                  end: 99999,
+                  onUpdate: (self) => {
+                    self.direction === -1 ? showAnim.play() : showAnim.reverse()
+                  }
+                });
+            }, []);
+
+            return (
+                <header ref={navRef} className="fixed top-0 left-0 right-0 z-50 px-4 py-4 md:px-8 bg-black/30 backdrop-blur-md">
+                    <nav className="flex justify-between items-center max-w-7xl mx-auto">
+                        <a href="#hero" onClick={(e) => onSectionClick(e, '#hero')} className="text-xl font-bold text-white tracking-wider font-heading">YourName</a>
+                        <div className="hidden md:flex space-x-8 items-center font-body">
+                            <a href="#about" onClick={(e) => onSectionClick(e, '#about')} className="text-gray-300 hover:text-white transition-colors duration-300">About</a>
+                            <a href="#projects" onClick={(e) => onSectionClick(e, '#projects')} className="text-gray-300 hover:text-white transition-colors duration-300">Projects</a>
+                            <a href="#contact" onClick={(e) => onSectionClick(e, '#contact')} className="text-gray-300 hover:text-white transition-colors duration-300">Contact</a>
+                        </div>
+                    </nav>
+                </header>
+            );
+        };
+
+        const CustomCursor = () => {
+            // ... existing CustomCursor code ...
+            const cursorDotRef = useRef(null);
+            const cursorOutlineRef = useRef(null);
+            const [isHoveringLink, setIsHoveringLink] = useState(false);
+
+            useEffect(() => {
+                const moveCursor = (e) => {
+                    gsap.to(cursorDotRef.current, { x: e.clientX, y: e.clientY, duration: 0.1 });
+                    gsap.to(cursorOutlineRef.current, { x: e.clientX, y: e.clientY, duration: 0.4, ease: 'power2.out' });
+                };
+
+                const onMouseEnterLink = () => setIsHoveringLink(true);
+                const onMouseLeaveLink = () => setIsHoveringLink(false);
+
+                window.addEventListener('mousemove', moveCursor);
+                document.querySelectorAll('a, button, input, textarea').forEach(el => {
+                    el.addEventListener('mouseenter', onMouseEnterLink);
+                    el.addEventListener('mouseleave', onMouseLeaveLink);
+                });
+
+                return () => window.removeEventListener('mousemove', moveCursor);
+            }, []);
+            
+            return (
+                <>
+                    <div ref={cursorDotRef} className="fixed top-0 left-0 w-2 h-2 bg-white rounded-full pointer-events-none z-[1001] transform -translate-x-1/2 -translate-y-1/2"></div>
+                    <div ref={cursorOutlineRef} className={`fixed top-0 left-0 rounded-full border-2 border-white pointer-events-none z-[1000] mix-blend-difference transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out ${isHoveringLink ? 'w-12 h-12' : 'w-8 h-8'}`}></div>
+                </>
+            );
+        };
+        
+        const GeminiModal = ({ title, content, isLoading, error, onClose }) => {
+            if (!content && !isLoading && !error) return null;
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm gemini-modal-backdrop" onClick={onClose}>
+                    <div className="gemini-modal-content bg-[#111] border border-gray-800 rounded-lg shadow-2xl w-full max-w-2xl p-6 relative" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold font-heading text-white mb-4 flex items-center"><SparklesIcon className="w-6 h-6 mr-2 text-fuchsia-400" /> {title}</h3>
+                        {isLoading && <div className="text-gray-400">Generating...</div>}
+                        {error && <div className="text-red-400">{error}</div>}
+                        {content && <div className="text-gray-300 font-body leading-relaxed whitespace-pre-wrap">{content}</div>}
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">&times;</button>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- Page Sections ---
+        const HeroSection = ({ onSectionClick }) => {
+            // ... existing HeroSection code ...
+            const heroRef = useRef(null);
+            const headingRef = useRef(null);
+            const subHeadingRef = useRef(null);
+            const buttonRef = useRef(null);
+
+            useEffect(() => {
+                const textWrapper = headingRef.current;
+                textWrapper.innerHTML = textWrapper.textContent.replace(/\S/g, "<span class='letter inline-block'>$&</span>");
+                
+                anime.timeline({ loop: false })
+                    .add({
+                        targets: '.letter',
+                        translateY: [100, 0],
+                        translateZ: 0,
+                        opacity: [0, 1],
+                        easing: "easeOutExpo",
+                        duration: 1400,
+                        delay: (el, i) => 500 + 30 * i
+                    });
+
+                gsap.from(subHeadingRef.current, { y: 20, opacity: 0, duration: 1, delay: 1.5, ease: 'power3.out' });
+                gsap.from(buttonRef.current, { y: 20, opacity: 0, duration: 1, delay: 1.8, ease: 'power3.out' });
+                
+                gsap.to(heroRef.current, {
+                    backgroundPosition: '50% 100%',
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: heroRef.current,
+                        start: 'top top',
+                        end: 'bottom top',
+                        scrub: true
+                    }
+                });
+            }, []);
+
+            return (
+                <section ref={heroRef} id="hero" className="min-h-screen flex items-center justify-center bg-fixed bg-cover bg-center p-8" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=2070&auto=format&fit=crop')" }}>
+                    <div className="absolute inset-0 bg-black/70"></div>
+                    <div className="text-center z-10">
+                        <h1 ref={headingRef} className="text-5xl md:text-8xl font-bold text-white mb-4 leading-tight overflow-hidden font-heading">Software Engineer</h1>
+                        <p ref={subHeadingRef} className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mb-8 font-body">I build modern, responsive, and performant web applications with a passion for creative technology.</p>
+                        <a ref={buttonRef} href="#projects" onClick={(e) => onSectionClick(e, '#projects')} className="group inline-flex items-center justify-center px-8 py-4 bg-transparent border-2 border-white text-white font-semibold rounded-full transition-all duration-300 hover:bg-white hover:text-black focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 font-body">
+                            View My Work
+                            <ArrowRightIcon className="w-5 h-5 ml-2 transform transition-transform duration-300 group-hover:translate-x-1" />
+                        </a>
+                    </div>
+                </section>
+            );
+        };
+
+        const AboutSection = () => {
+            const sectionRef = useRef(null);
+            const skills = ['React', 'Next.js', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker', 'GSAP', 'Figma'];
+            const originalBio = "Hello! I'm a software engineer with a strong passion for developing elegant and efficient solutions. My journey in tech started with a fascination for how things work, which led me to dive deep into web development. I specialize in front-end technologies and am adept at building robust back-end systems. I thrive on turning complex problems into beautiful, intuitive digital experiences.";
+            
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [generatedBio, setGeneratedBio] = useState('');
+            const [error, setError] = useState('');
+
+            const handleReimagineBio = async () => {
+                setIsGenerating(true);
+                setGeneratedBio('');
+                setError('');
+                const prompt = `Rewrite the following software engineer bio to be more professional and impactful. Keep it concise (around 4 sentences). Bio: "${originalBio}"`;
+                try {
+                    const result = await callGeminiAPI(prompt);
+                    setGeneratedBio(result);
+                } catch (e) {
+                    setError('Failed to generate bio. Please try again.');
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            useEffect(() => {
+                // ... existing animation code ...
+                const el = sectionRef.current;
+                gsap.fromTo(el.querySelector('.about-image-wrapper'), { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 1.2, ease: 'power4.out', scrollTrigger: { trigger: el.querySelector('.about-image-wrapper'), start: 'top 85%' }});
+                gsap.fromTo(el.querySelectorAll('.about-content > *'), { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 1, stagger: 0.15, ease: 'power3.out', scrollTrigger: { trigger: el.querySelector('.about-content'), start: 'top 80%' }});
+                gsap.fromTo(el.querySelectorAll('.skill-tag'), { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, stagger: 0.05, ease: 'power3.out', scrollTrigger: { trigger: el.querySelector('.skills-grid'), start: 'top 90%' }});
+            }, []);
+
+            return (
+                <section ref={sectionRef} id="about" className="py-20 lg:py-40 bg-[#0a0a0a] text-white">
+                    <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+                        <div className="about-image-wrapper relative">
+                            <div className="absolute inset-0 bg-fuchsia-400/20 blur-3xl -z-10"></div>
+                            <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop" alt="A person coding on a laptop" className="rounded-lg shadow-2xl object-cover w-full h-full" />
+                        </div>
+                        <div className="about-content">
+                            <h2 className="text-4xl md:text-5xl font-bold mb-6 font-heading">About Me</h2>
+                            <p className="text-gray-300 mb-4 font-body leading-relaxed">Hello! I'm a software engineer with a strong passion for developing elegant and efficient solutions. My journey in tech started with a fascination for how things work, which led me to dive deep into web development.</p>
+                            <p className="text-gray-300 mb-8 font-body leading-relaxed">I specialize in front-end technologies and am adept at building robust back-end systems. I thrive on turning complex problems into beautiful, intuitive digital experiences.</p>
+                             <button onClick={handleReimagineBio} disabled={isGenerating} className="group flex items-center mb-8 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-full text-sm font-medium text-fuchsia-300 hover:bg-gray-800 transition-colors disabled:opacity-50">
+                                <SparklesIcon className="w-4 h-4 mr-2" />
+                                {isGenerating ? 'Thinking...' : '✨ Reimagine Bio with AI'}
+                            </button>
+                            <div className="skills-grid flex flex-wrap gap-3">
+                                {skills.map(skill => <span key={skill} className="skill-tag text-gray-300 text-sm font-medium px-4 py-2 rounded-full cursor-default">{skill}</span>)}
+                            </div>
+                            <div className="flex space-x-6 mt-8">
+                                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-transform duration-300 hover:scale-110"><GitHubIcon className="w-8 h-8"/></a>
+                                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-transform duration-300 hover:scale-110"><LinkedInIcon className="w-8 h-8"/></a>
+                            </div>
+                        </div>
+                    </div>
+                    <GeminiModal title="AI-Generated Bio" content={generatedBio} isLoading={isGenerating} error={error} onClose={() => setGeneratedBio('')} />
+                </section>
+            );
+        };
+        
+        const ProjectsSection = () => {
+            const sectionRef = useRef(null);
+            const projects = [
+                { title: 'Project One', description: 'A modern e-commerce platform with a focus on user experience and performance.', tech: ['React', 'Node.js', 'PostgreSQL'], image: 'https://images.unsplash.com/photo-1522199755839-a2bacb67c546?q=80&w=2072&auto=format&fit=crop' },
+                { title: 'Project Two', description: 'An interactive data visualization dashboard for analyzing complex datasets.', tech: ['D3.js', 'Next.js', 'Firebase'], image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop' },
+                { title: 'Project Three', description: 'A collaborative real-time document editor using WebSockets and CRDTs.', tech: ['Vue.js', 'Socket.io', 'MongoDB'], image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=2070&auto=format&fit=crop' },
+            ];
+            const skills = ['React', 'Next.js', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker', 'GSAP', 'Figma'];
+            
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [idea, setIdea] = useState('');
+            const [error, setError] = useState('');
+
+            const handleGenerateIdea = async () => {
+                setIsGenerating(true);
+                setIdea('');
+                setError('');
+                const prompt = `I am a software engineer with skills in: ${skills.join(', ')}. Suggest a creative and modern project idea that I can build for my portfolio. Provide a title and a one-paragraph description.`;
+                try {
+                    const result = await callGeminiAPI(prompt);
+                    setIdea(result);
+                } catch (e) {
+                    setError('Failed to generate idea. Please try again.');
+                } finally {
+                    setIsGenerating(false);
+                }
+            };
+
+            useEffect(() => {
+                // ... existing animation code ...
+                 const el = sectionRef.current;
+                gsap.fromTo(el.querySelectorAll('.project-card'),
+                    { y: 60, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 1, ease: 'power4.out', stagger: 0.2, scrollTrigger: { trigger: el, start: 'top 80%' }}
+                );
+            }, []);
+
+            return (
+                <section ref={sectionRef} id="projects" className="py-20 lg:py-40 bg-[#0a0a0a] text-white">
+                    <div className="max-w-7xl mx-auto px-8">
+                        <div className="text-center mb-16">
+                            <h2 className="text-4xl md:text-5xl font-bold mb-4 font-heading">Featured Projects</h2>
+                            <button onClick={handleGenerateIdea} disabled={isGenerating} className="group inline-flex items-center px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-full text-sm font-medium text-fuchsia-300 hover:bg-gray-800 transition-colors disabled:opacity-50">
+                                <SparklesIcon className="w-4 h-4 mr-2" />
+                                {isGenerating ? 'Generating...' : '✨ Suggest a Project Idea'}
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                            {projects.map((project, index) => (
+                                <div key={index} className="project-card group cursor-pointer">
+                                    <div className="overflow-hidden rounded-lg mb-6">
+                                        <img src={project.image} alt={project.title} className="w-full h-72 object-cover" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold mb-2 font-heading">{project.title}</h3>
+                                    <p className="text-gray-400 mb-4 font-body">{project.description}</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.tech.map((tech, i) => <span key={i} className="bg-gray-800/50 text-gray-300 text-sm font-medium px-3 py-1 rounded-full">{tech}</span>)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <GeminiModal title="AI-Generated Project Idea" content={idea} isLoading={isGenerating} error={error} onClose={() => setIdea('')} />
+                </section>
+            );
+        };
+
+        const ContactSection = () => {
+            const sectionRef = useRef(null);
+            const [message, setMessage] = useState('');
+            const [isImproving, setIsImproving] = useState(false);
+
+            const handleImproveMessage = async () => {
+                if (!message.trim()) return;
+                setIsImproving(true);
+                const prompt = `Rewrite the following message to sound more professional and clear, while retaining the original intent. Message: "${message}"`;
+                try {
+                    const result = await callGeminiAPI(prompt);
+                    setMessage(result);
+                } catch (e) {
+                    // Could show an error state here
+                    console.error("Failed to improve message");
+                } finally {
+                    setIsImproving(false);
+                }
+            };
+            
+            useEffect(() => {
+                // ... existing animation code ...
+                const el = sectionRef.current;
+                gsap.fromTo(el.querySelector('.contact-form-container'),
+                    { opacity: 0, scale: 0.95, y: 50 },
+                    { opacity: 1, scale: 1, y: 0, duration: 1.2, ease: 'power4.out', scrollTrigger: { trigger: el, start: 'top 80%' }}
+                );
+            }, []);
+
+            return (
+                <section ref={sectionRef} id="contact" className="py-20 lg:py-40 bg-black text-white">
+                    <div className="max-w-3xl mx-auto px-8 text-center">
+                        <h2 className="text-4xl md:text-5xl font-bold mb-4 font-heading">Get In Touch</h2>
+                        <p className="text-gray-400 mb-10 max-w-xl mx-auto leading-relaxed">I'm currently open to new opportunities. If you have a project in mind or just want to say hi, feel free to send me a message.</p>
+                        <div className="contact-form-container">
+                            <form className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <input type="text" placeholder="Your Name" className="bg-gray-900/50 text-white w-full p-4 rounded-md border border-gray-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 transition-shadow" />
+                                    <input type="email" placeholder="Your Email" className="bg-gray-900/50 text-white w-full p-4 rounded-md border border-gray-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 transition-shadow" />
+                                </div>
+                                <div className="relative">
+                                    <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Your Message" rows="5" className="bg-gray-900/50 text-white w-full p-4 rounded-md border border-gray-800 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 transition-shadow"></textarea>
+                                    <button type="button" onClick={handleImproveMessage} disabled={isImproving || !message} className="absolute bottom-3 right-3 flex items-center px-2 py-1 bg-gray-700/50 rounded-full text-xs text-fuchsia-300 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <SparklesIcon className="w-4 h-4 mr-1" />
+                                        {isImproving ? 'Improving...' : '✨ Improve'}
+                                     </button>
+                                </div>
+                                <button type="submit" className="w-full px-8 py-4 bg-white text-black font-bold text-lg rounded-full transition-transform duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50">
+                                    Send Message
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // --- Main App Component ---
+        function App() {
+            useEffect(() => {
+                // ... existing useEffect code ...
+                const lenis = new Lenis();
+                function raf(time) {
+                    lenis.raf(time);
+                    requestAnimationFrame(raf);
+                }
+                requestAnimationFrame(raf);
+                gsap.registerPlugin(ScrollTrigger);
+            }, []);
+            
+            const handleSectionClick = (e, targetId) => {
+                e.preventDefault();
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop,
+                        behavior: 'smooth'
+                    });
+                }
+            };
+
+            return (
+                <div className="bg-[#0a0a0a] selection:bg-fuchsia-400 selection:text-black">
+                    <CustomCursor />
+                    <Nav onSectionClick={handleSectionClick} />
+                    <main>
+                        <HeroSection onSectionClick={handleSectionClick} />
+                        <AboutSection />
+                        <ProjectsSection />
+                        <ContactSection />
+                    </main>
+                    <footer className="bg-black py-8 text-center text-gray-600">
+                        <p className="font-body">&copy; {new Date().getFullYear()} Your Name. All rights reserved.</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
