@@ -12,92 +12,83 @@ async function getInstagramImages(username) {
     console.log(`[LOG] Instagram: Starting fetch for username: ${username}`);
     let previewUrl = null, downloadUrl = null, name = null;
 
-    // Use a more recent and specific User-Agent for all Instagram requests
     const commonHeaders = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
     };
 
-    // Attempt 1: Raw data endpoint with cookies
+    // Attempt 1: Raw data endpoint
     try {
-        console.log(`[LOG] Instagram: Attempt 1 - Fetching initial Instagram page for cookies.`);
+        console.log(`[LOG] Instagram: Attempt 1 - Fetching initial page for cookies.`);
         const initialResponse = await axios.get('https://www.instagram.com/', { headers: commonHeaders });
         const cookies = initialResponse.headers['set-cookie']?.join('; ') || '';
         console.log(`[LOG] Instagram: Cookies fetched: ${cookies.length > 0 ? 'Yes' : 'No'}`);
-
         const dataUrl = `https://www.instagram.com/${username}/?__a=1&__d=dis`;
-        console.log(`[LOG] Instagram: Attempt 1 - Fetching data from: ${dataUrl}`);
         const { data: jsonData } = await axios.get(dataUrl, { headers: { ...commonHeaders, 'Cookie': cookies } });
-        
         downloadUrl = jsonData.graphql?.user?.profile_pic_url_hd;
         previewUrl = jsonData.graphql?.user?.profile_pic_url;
         name = jsonData.graphql?.user?.full_name;
-
-        console.log(`[LOG] Instagram: Attempt 1 - Data endpoint results: previewUrl = ${previewUrl || 'Not Found'}, downloadUrl = ${downloadUrl || 'Not Found'}, name = ${name || 'Not Found'}`);
-
+        console.log(`[LOG] Instagram: Attempt 1 - Success!`);
     } catch (error) {
-        console.warn(`[WARN] Instagram: Attempt 1 (Raw data endpoint) failed for ${username}: ${error.message}`);
-        if (error.response) {
-            console.warn(`[WARN] Instagram: Attempt 1 - Response status: ${error.response.status}`);
-        }
+        console.warn(`[WARN] Instagram: Attempt 1 (Raw data endpoint) failed for ${username}.`);
     }
 
-    // Attempt 2: Web API fallback (if downloadUrl or name not found)
+    // Attempt 2: Web API fallback
     try {
         if (!downloadUrl || !name) {
             console.log(`[LOG] Instagram: Attempt 2 - Falling back to web_profile_info API.`);
             const profileApiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`;
             const { data: profileJson } = await axios.get(profileApiUrl, { headers: { 'x-ig-app-id': '936619743392459', ...commonHeaders } });
-            
             if (!downloadUrl) downloadUrl = profileJson.data?.user?.profile_pic_url_hd;
             if (!name) name = profileJson.data?.user?.full_name;
-
-            console.log(`[LOG] Instagram: Attempt 2 - Web API results: previewUrl (still) = ${previewUrl || 'Not Found'}, downloadUrl = ${downloadUrl || 'Not Found'}, name = ${name || 'Not Found'}`);
+            console.log(`[LOG] Instagram: Attempt 2 - Found downloadUrl via Web API: ${!!downloadUrl}`);
         }
     } catch (error) {
-        console.warn(`[WARN] Instagram: Attempt 2 (Web API fallback) failed for ${username}: ${error.message}`);
-        if (error.response) {
-            console.warn(`[WARN] Instagram: Attempt 2 - Response status: ${error.response.status}`);
-        }
+        console.warn(`[WARN] Instagram: Attempt 2 (Web API fallback) failed.`);
     }
 
-    // Attempt 3: Final HTML scrape for og:image (if previewUrl not found)
+    // Attempt 3: Final HTML scrape for og:image
     try {
         if (!previewUrl) {
             console.log(`[LOG] Instagram: Attempt 3 - Falling back to HTML scrape for og:image.`);
             const profileUrl = `https://www.instagram.com/${username}/`;
             const { data: html } = await axios.get(profileUrl, { headers: commonHeaders });
             const $ = cheerio.load(html);
-            
             previewUrl = $('meta[property="og:image"]').attr('content');
-            if (!name) { 
-                const title = $('title').text(); 
-                name = title.split('(')[0].trim(); 
+            if (!name) {
+                const title = $('title').text();
+                name = title.split('(')[0].trim();
             }
-            console.log(`[LOG] Instagram: Attempt 3 - HTML scrape results: previewUrl = ${previewUrl || 'Not Found'}, name = ${name || 'Not Found'}`);
+            console.log(`[LOG] Instagram: Attempt 3 - Found previewUrl via HTML: ${!!previewUrl}`);
         }
     } catch (error) {
-        console.error(`[ERROR] Instagram: Attempt 3 (Final HTML scrape) failed for ${username}:`, error.message);
-        if (error.response) {
-            console.error(`[ERROR] Instagram: Attempt 3 - Response status: ${error.response.status}`);
-        }
-        // If all attempts fail and no URLs are found, explicitly return null
-        return null; 
+        console.error(`[ERROR] Instagram: Attempt 3 (Final HTML scrape) failed.`);
     }
 
     if (!previewUrl && !downloadUrl) {
-        console.error(`[ERROR] Instagram: No image URLs (preview or download) found for ${username} after all attempts. Returning null.`);
+        console.error(`[ERROR] Instagram: No image URLs found for ${username} after all attempts. Returning null.`);
         return null;
     }
 
-    const result = { 
-        previewUrl: previewUrl || downloadUrl, // Ensure a previewUrl is always provided if possible
-        downloadUrl: downloadUrl || previewUrl, // Ensure a downloadUrl is always provided if possible
-        username: username, 
-        name: name || username 
+    // --- NEW LOGIC: CREATE PREVIEW URL IF MISSING ---
+    let finalPreviewUrl = previewUrl || downloadUrl;
+    let finalDownloadUrl = downloadUrl || previewUrl;
+
+    // If we only have the downloadUrl, try to create a smaller 150x150 preview version.
+    if (finalDownloadUrl && !previewUrl) {
+        // This regex replaces any size like 's320x320' or 's1080x1080' with 's150x150'
+        finalPreviewUrl = finalDownloadUrl.replace(/s\d+x\d+/, 's150x150');
+        console.log(`[LOG] Instagram: Created a smaller preview URL: ${finalPreviewUrl}`);
+    }
+    // --- END OF NEW LOGIC ---
+
+    const result = {
+        previewUrl: finalPreviewUrl,
+        downloadUrl: finalDownloadUrl,
+        username: username,
+        name: name || username
     };
+
     console.log('[LOG] Instagram: Returning final object:', result);
     return result;
 }
