@@ -203,8 +203,7 @@ export default function HomePage() {
                             <div className={`transition-opacity duration-500 ${view === 'result' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
                                 {userData && (
                                     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 flex flex-col items-center">
-                                        <img src={userData.previewUrl} alt={`${userData.name || userData.username}'s Profile`} className={`w-36 h-36 rounded-full object-cover border-4 border-white shadow-2xl ${currentTheme.shadow}`} />
-
+                                     <img src={`/api/image-proxy?url=${encodeURIComponent(userData.previewUrl)}`} alt={`${userData.name || userData.username}'s Profile`} className={`w-36 h-36 rounded-full object-cover border-4 border-white shadow-2xl ${currentTheme.shadow}`} />
                                         {userData.name && <h3 className="text-3xl font-bold text-gray-900 mt-6">{userData.name}</h3>}
                                         {displaySubtitle && <p className="text-lg text-gray-500 mt-1">{displaySubtitle}</p>}
 
