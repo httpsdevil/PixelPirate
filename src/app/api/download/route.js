@@ -67,7 +67,7 @@ async function getPinterestImages(url) {
 }
 
 // =================================================================================
-// *** YOUTUBE FUNCTION WITH DETAILED LOGGING ***
+// *** FINAL, ROBUST YOUTUBE FUNCTION (Fixed Shorts thumbnail & URL normalization) ***
 // =================================================================================
 async function getYouTubeImage(url) {
     console.log(`[LOG] YouTube: Starting fetch for URL: ${url}`);
