@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { supabase } from '../../lib/supabaseClient'; // Assuming this path is correct
-import { UAParser } from 'ua-parser-js'; // Assuming this path is correct
+import { supabase } from '../../lib/supabaseClient';
+import { UAParser } from 'ua-parser-js';
 
 // =================================================================================
 // SCRAPING FUNCTIONS (Instagram & Pinterest are unchanged)
@@ -67,61 +67,76 @@ async function getPinterestImages(url) {
 }
 
 // =================================================================================
-// *** FINAL, ROBUST YOUTUBE FUNCTION (Fixed Shorts thumbnail & URL normalization) ***
+// *** YOUTUBE FUNCTION WITH DETAILED LOGGING ***
 // =================================================================================
 async function getYouTubeImage(url) {
+    // LOG: Log the start of the function and the URL being processed.
+    console.log(`[LOG] YouTube: Starting fetch for URL: ${url}`);
     try {
-        const { data: html } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const { data: html } = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+            }
+        });
+        // LOG: Confirm that HTML was fetched successfully and log its size.
+        console.log(`[LOG] YouTube: Successfully fetched HTML. Length: ${html.length}`);
+
         const $ = cheerio.load(html);
 
         let imageUrl = null;
-        let name = null;      // Will hold Video Title or Channel Name
-        let username = null;  // Will hold Channel Name or @handle
+        let name = null;
+        let username = null;
 
         // Always try to get the og:image first, it's usually the best thumbnail
         imageUrl = $('meta[property="og:image"]').attr('content');
+        // LOG: Log the result of the og:image search. This is a critical piece of data.
+        console.log(`[LOG] YouTube: Found og:image URL: ${imageUrl || 'Not Found'}`);
+
 
         let initialData = null;
         const scripts = $('script');
         scripts.each((index, element) => {
             const scriptContent = $(element).html();
             if (scriptContent?.includes('var ytInitialData = ')) {
+                // LOG: Confirm that the script containing ytInitialData was found.
+                console.log('[LOG] YouTube: Found script tag containing ytInitialData.');
                 const jsonString = scriptContent.split('var ytInitialData = ')[1].split(';')[0];
-                try { initialData = JSON.parse(jsonString); }
-                catch (e) { console.error("Failed to parse ytInitialData JSON:", e.message); }
+                try {
+                    initialData = JSON.parse(jsonString);
+                    // LOG: Confirm successful parsing of the JSON data.
+                    console.log('[LOG] YouTube: Successfully parsed ytInitialData.');
+                } catch (e) {
+                    // LOG: Log an error if JSON parsing fails.
+                    console.error("[ERROR] YouTube: Failed to parse ytInitialData JSON:", e.message);
+                }
             }
         });
 
         if (initialData) {
-            // --- Logic for YouTube Shorts (use more direct paths now we have debug data) ---
+            // ... (rest of the initialData logic)
             const shortsReelPlayerHeader = initialData.overlay?.reelPlayerOverlayRenderer?.reelPlayerHeaderSupportedRenderers?.reelPlayerHeaderRenderer;
             const shortsMetapanel = initialData.overlay?.reelPlayerOverlayRenderer?.metapanel?.reelMetapanelViewModel?.metadataItems?.[0]?.reelChannelBarViewModel;
 
             if (shortsReelPlayerHeader) {
                 name = shortsReelPlayerHeader.reelTitleText?.runs?.[0]?.text;
-                // For shorts, the username is usually in the channelName.content
                 username = shortsMetapanel?.channelName?.content || shortsReelPlayerHeader.channelTitleText?.runs?.[0]?.text;
             }
-            // --- Logic for Regular Videos (watching a video) ---
             else if (initialData.contents?.twoColumnWatchNextResults) {
                 const videoPrimaryInfo = initialData.contents.twoColumnWatchNextResults.results.results.contents?.[0]?.videoPrimaryInfoRenderer;
                 const videoSecondaryInfo = initialData.contents.twoColumnWatchNextResults.results.results.contents?.[1]?.videoSecondaryInfoRenderer;
-
                 name = videoPrimaryInfo?.title?.runs?.[0]?.text;
                 username = videoSecondaryInfo?.owner?.videoOwnerRenderer?.title?.runs?.[0]?.text;
             }
-            // --- Logic for Channel Pages ---
             else if (initialData.header?.c4TabbedHeaderRenderer) {
                 const header = initialData.header.c4TabbedHeaderRenderer;
                 name = header.title;
                 username = header.channelHandleText?.runs?.[0]?.text || header.title;
-                if (!imageUrl) { // Use channel avatar if og:image wasn't available or relevant
+                if (!imageUrl) {
                     imageUrl = header.avatar?.thumbnails?.pop()?.url;
                 }
             }
         }
 
-        // --- Generic Fallbacks (if initialData parsing or specific paths fail) ---
         if (!name) {
             name = $('title').text().split(' - YouTube')[0].trim();
         }
@@ -130,31 +145,39 @@ async function getYouTubeImage(url) {
             if (ogSiteName && ogSiteName.toLowerCase() !== 'youtube') {
                 username = ogSiteName;
             } else {
-                username = name; // Last resort: use the name as username
+                username = name;
             }
         }
 
         if (!imageUrl) {
-            return null; // If no image can be found, fail gracefully
+            // LOG: Critical error if no image URL could be found after all attempts.
+            console.error(`[ERROR] YouTube: Could not find any image URL for: ${url}. Returning null.`);
+            return null;
         }
 
-        // ======================================================================
-        // *** MODIFIED URL CLEANING LOGIC (As per your request) ***
-        // This finds the ".jpg" and removes any parameters after it.
-        // ======================================================================
+        // LOG: Log the image URL before the final cleaning step.
+        console.log(`[LOG] YouTube: Image URL before cleanup: ${imageUrl}`);
         const jpgIndex = imageUrl.indexOf('.jpg');
         if (jpgIndex !== -1) {
-            imageUrl = imageUrl.substring(0, jpgIndex + 4); // +4 to include ".jpg"
+            imageUrl = imageUrl.substring(0, jpgIndex + 4);
         }
+        // LOG: Log the image URL after the final cleaning step.
+        console.log(`[LOG] YouTube: Image URL after cleanup: ${imageUrl}`);
 
-        return {
+        const result = {
             previewUrl: imageUrl,
             downloadUrl: imageUrl,
             username: username,
             name: name,
         };
+
+        // LOG: Log the final object that will be returned to the frontend.
+        console.log('[LOG] YouTube: Returning final object:', result);
+        return result;
+
     } catch (e) {
-        console.error("YouTube fetch failed:", e.message);
+        // LOG: Catch any unexpected errors during the entire process.
+        console.error(`[CRITICAL ERROR] YouTube fetch failed for ${url}:`, e.message);
         return null;
     }
 }

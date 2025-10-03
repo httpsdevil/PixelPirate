@@ -112,6 +112,7 @@ export default function HomePage() {
             }
             const data = await response.json();
             setUserData(data);
+            console.log(data)
 
             const isYouTubeVideoOrShort = (url.includes("/watch?") || url.includes("/shorts/") || url.includes("youtu.be/")) && !url.includes("/@");
             if (platform === 'youtube' && !isYouTubeVideoOrShort) {
