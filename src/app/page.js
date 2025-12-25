@@ -16,16 +16,24 @@ const Header = ({ onHome }) => (
     <header className="px-4 sm:px-6 lg:px-8">
         <nav className="flex items-center w-full">
             <div className="flex justify-center md:justify-start w-full">
-                <img
-                    src="/logo.svg"
-                    alt="Logo"
-                    className="h-16 w-32 rounded-md cursor-pointer"
-                    onClick={onHome}
-                />
+                <a
+                    href="/"
+                    onClick={(e) => {
+                        e.preventDefault(); // SPA behavior
+                        onHome();
+                    }}
+                >
+                    <img
+                        src="/logo.svg"
+                        alt="PixelPirate Home"
+                        className="h-16 w-32 rounded-md cursor-pointer"
+                    />
+                </a>
             </div>
         </nav>
     </header>
 );
+
 
 
 // Component for the "What We Offer" section
@@ -97,9 +105,6 @@ const RESOLUTION_LABELS = {
 };
 
 
-const STORAGE_KEY = "pixelpirate:lastResult";
-
-
 
 export default function HomePage() {
     // --- State and Logic (Mostly unchanged) ---
@@ -155,12 +160,6 @@ export default function HomePage() {
             }
             const data = await response.json();
             setUserData(data);
-            localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify({ url })
-            );
-
-
             console.log(data)
 
             const isYouTubeVideoOrShort = (url.includes("/watch?") || url.includes("/shorts/") || url.includes("youtu.be/")) && !url.includes("/@");
@@ -180,7 +179,6 @@ export default function HomePage() {
     };
 
     const handleBack = () => {
-        localStorage.removeItem(STORAGE_KEY);
         setView("search");
         setError(null);
         setUrl("");
@@ -189,50 +187,13 @@ export default function HomePage() {
 
 
 
-    useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (!saved) return;
-
-        try {
-            const { url: savedUrl } = JSON.parse(saved);
-            if (!savedUrl) return;
-
-            setUrl(savedUrl);
-            setView("result");
-
-            // re-fetch fresh data
-            (async () => {
-                setIsLoading(true);
-                try {
-                    const res = await fetch("/api/download", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ url: savedUrl }),
-                    });
-
-                    if (!res.ok) return;
-                    const data = await res.json();
-                    setUserData(data);
-                } catch (e) {
-                    console.error("Restore fetch failed", e);
-                } finally {
-                    setIsLoading(false);
-                }
-            })();
-        } catch {
-            localStorage.removeItem(STORAGE_KEY);
-        }
-    }, []);
-
-
-
     const handleHome = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUrl("");
-    setUserData(null);
-    setError(null);
-    setView("search");
-};
+        setUrl("");
+        setUserData(null);
+        setError(null);
+        setView("search");
+    };
+
 
 
 
