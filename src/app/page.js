@@ -18,7 +18,10 @@ const Header = ({ onHome }) => (
             <div className="flex justify-center md:justify-start w-full">
                 <a
                     href="/"
-                    onClick={(e) => {
+                    onClick={(e) => { // Allow browser default for new-tab actions
+                        if (e.ctrlKey || e.metaKey || e.button === 1) {
+                            return;
+                        }
                         e.preventDefault(); // SPA behavior
                         onHome();
                     }}
