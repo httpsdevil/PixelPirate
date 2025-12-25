@@ -4,6 +4,32 @@ import * as cheerio from 'cheerio';
 import { supabase } from '../../lib/supabaseClient';
 import { UAParser } from 'ua-parser-js';
 
+
+// Helper function
+async function getYouTubeFromOEmbed(url) {
+    try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+            url
+        )}&format=json`;
+
+        const { data } = await axios.get(oembedUrl, {
+            timeout: 5000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+            },
+        });
+
+        return {
+            name: data.title,
+            username: data.author_name,
+            imageUrl: data.thumbnail_url,
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+
 // =================================================================================
 // SCRAPING FUNCTIONS (Instagram & Pinterest are unchanged)
 // =================================================================================
@@ -67,11 +93,118 @@ async function getPinterestImages(url) {
     } catch (e) { console.error("Pinterest fetch failed:", e.message); return null; }
 }
 
+
+const SHORTS_SIZES = [
+  "maxresdefault.jpg",
+  "oardefault.jpg",
+  "oar2.jpg",
+  "oar1.jpg",
+  "oar3.jpg",
+  "oar4.jpg",
+  "sddefault.jpg",
+  "hqdefault.jpg",
+  "mqdefault.jpg",
+  "default.jpg",
+  "0.jpg",
+  "1.jpg",
+  "2.jpg",
+  "3.jpg",
+  "hq720.jpg",
+//   "hq1080.jpg",
+];
+
+
+const VIDEO_SIZES = [
+    "maxresdefault.jpg",
+    "sddefault.jpg",
+    "hqdefault.jpg",
+    "mqdefault.jpg",
+    "default.jpg",
+    "0.jpg",
+    "1.jpg",
+    "2.jpg",
+    "3.jpg",
+    "hq720.jpg",
+//   "hq1080.jpg",
+];
+
+
+
+
 // =================================================================================
 // *** FINAL, ROBUST YOUTUBE FUNCTION (Fixed Shorts thumbnail & URL normalization) ***
 // =================================================================================
 async function getYouTubeImage(url) {
     console.log(`[LOG] YouTube: Starting fetch for URL: ${url}`);
+
+      // ✅ STEP 0: DETECT SHORTS FIRST (BEFORE URL CHANGES)
+  const isShort = url.includes("/shorts/");
+
+    // 🔹 NORMALIZE SHORTS URL
+    if (url.includes('/shorts/')) {
+        const id = url.split('/shorts/')[1]?.split('?')[0];
+        if (id) {
+            url = `https://www.youtube.com/watch?v=${id}`;
+        }
+    }
+
+    // 🔹 STEP 1: TRY OEMBED FIRST (THIS FIXES TITLES)
+    const oembed = await getYouTubeFromOEmbed(url);
+
+    if (oembed) {
+        console.log('[LOG] YouTube: Using oEmbed data');
+
+        // Try maxres thumbnail first
+        let imageUrl = oembed.imageUrl;
+
+        // Extract video ID
+        const videoIdMatch = url.match(
+            /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/
+        );
+
+        if (videoIdMatch) {
+            const videoId = videoIdMatch[1];
+            const maxRes = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+            try {
+                await axios.head(maxRes);
+                imageUrl = maxRes;
+            } catch {
+                // maxres not available → keep oEmbed image
+            }
+        }
+
+        // // Detect Shorts
+        // const isShort =
+        //     url.includes("/shorts/") ||
+        //     url.includes("youtu.be") && url.includes("shorts");
+
+        const videoId = videoIdMatch?.[1];
+
+        const sizes = isShort ? SHORTS_SIZES : VIDEO_SIZES;
+
+        const thumbnails = sizes.map((file) => ({
+            file,
+            primary: `https://img.youtube.com/vi/${videoId}/${file}`,
+            alternate: `https://i.ytimg.com/vi/${videoId}/${file}`,
+        }));
+
+        return {
+            platform: "youtube",
+            isShort,
+            videoId,
+            sourceUrl: url,
+            name: oembed.name,
+            username: oembed.username,
+            previewUrl: thumbnails[0].primary,
+            thumbnails,
+        };
+
+
+    }
+
+    // 🔹 STEP 2: ONLY IF OEMBED FAILS → SCRAPE
+    console.warn('[WARN] YouTube: oEmbed failed, falling back to scraping...');
     try {
         const { data: html } = await axios.get(url, {
             headers: {

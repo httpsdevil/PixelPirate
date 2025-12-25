@@ -12,15 +12,21 @@ const ArrowLeftIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" 
 const CheckIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500"><polyline points="20 6 9 17 4 12"></polyline></svg>);
 
 // Component for the Header
-const Header = () => (
+const Header = ({ onHome }) => (
     <header className="px-4 sm:px-6 lg:px-8">
         <nav className="flex items-center w-full">
             <div className="flex justify-center md:justify-start w-full">
-                <img src="/logo.svg" alt="Logo" className="h-32 w-32 rounded-md" />
+                <img
+                    src="/logo.svg"
+                    alt="Logo"
+                    className="h-16 w-32 rounded-md cursor-pointer"
+                    onClick={onHome}
+                />
             </div>
         </nav>
     </header>
 );
+
 
 // Component for the "What We Offer" section
 const FeaturesSection = () => {
@@ -70,6 +76,31 @@ const Footer = () => (
     </footer>
 );
 
+const RESOLUTION_LABELS = {
+    "maxresdefault.jpg": "Maximum Resolution (1280x720)",
+    "sddefault.jpg": "SD (640×480)",
+    "hqdefault.jpg": "HD (480×360)",
+    "mqdefault.jpg": "Medium Quality",
+    "default.jpg": "Low Quality",
+    "hq720.jpg": "HD 720p",
+
+    "oardefault.jpg": "Original Aspect",
+    "oar1.jpg": "Original Aspect 1",
+    "oar2.jpg": "Original Aspect 2",
+    "oar3.jpg": "Original Aspect 3",
+    "oar4.jpg": "Original Aspect 4",
+
+    "0.jpg": "Frame 0",
+    "1.jpg": "Frame 1",
+    "2.jpg": "Frame 2",
+    "3.jpg": "Frame 3",
+};
+
+
+const STORAGE_KEY = "pixelpirate:lastResult";
+
+
+
 export default function HomePage() {
     // --- State and Logic (Mostly unchanged) ---
     const [url, setUrl] = useState("");
@@ -79,6 +110,18 @@ export default function HomePage() {
     const [userData, setUserData] = useState(null);
     const [view, setView] = useState('search');
     const [displaySubtitle, setDisplaySubtitle] = useState("");
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(userData.sourceUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch (e) {
+            console.error("Copy failed", e);
+        }
+    };
+
 
     const theme = {
         pinterest: { name: "Pinterest", placeholder: "https://www.pinterest.com/username", ringColor: "focus-within:ring-red-500", buttonStyle: { backgroundColor: '#ef4444' }, shadow: "shadow-red-500/50" },
@@ -112,6 +155,12 @@ export default function HomePage() {
             }
             const data = await response.json();
             setUserData(data);
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({ url })
+            );
+
+
             console.log(data)
 
             const isYouTubeVideoOrShort = (url.includes("/watch?") || url.includes("/shorts/") || url.includes("youtu.be/")) && !url.includes("/@");
@@ -131,10 +180,62 @@ export default function HomePage() {
     };
 
     const handleBack = () => {
-        setView('search');
+        localStorage.removeItem(STORAGE_KEY);
+        setView("search");
         setError(null);
-        setUrl('');
+        setUrl("");
+        setUserData(null);
     };
+
+
+
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return;
+
+        try {
+            const { url: savedUrl } = JSON.parse(saved);
+            if (!savedUrl) return;
+
+            setUrl(savedUrl);
+            setView("result");
+
+            // re-fetch fresh data
+            (async () => {
+                setIsLoading(true);
+                try {
+                    const res = await fetch("/api/download", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url: savedUrl }),
+                    });
+
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    setUserData(data);
+                } catch (e) {
+                    console.error("Restore fetch failed", e);
+                } finally {
+                    setIsLoading(false);
+                }
+            })();
+        } catch {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+    }, []);
+
+
+
+    const handleHome = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setUrl("");
+    setUserData(null);
+    setError(null);
+    setView("search");
+};
+
+
+
 
     return (
         <>
@@ -152,7 +253,8 @@ export default function HomePage() {
             <svg width="0" height="0" style={{ position: 'absolute' }}><defs><linearGradient id="insta-gradient-stroke" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{ stopColor: '#bc1888' }} /><stop offset="50%" style={{ stopColor: '#dc2743' }} /><stop offset="100%" style={{ stopColor: '#f09433' }} /></linearGradient></defs></svg>
 
             <div className="bg-slate-50 text-slate-800">
-                <Header />
+                <Header onHome={handleHome} />
+
 
                 <main>
                     {/* --- HERO SECTION --- */}
@@ -203,20 +305,91 @@ export default function HomePage() {
                             <div className={`transition-opacity duration-500 ${view === 'result' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
                                 {userData && (
                                     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 flex flex-col items-center">
+
+                                        <div className="mb-6 px-4 py-2 rounded-lg bg-slate-100 border border-slate-200 text-sm flex items-start gap-3">
+                                            <span className="font-semibold text-slate-600 whitespace-nowrap">
+                                                Source:
+                                            </span>
+
+                                            <a
+                                                href={userData.sourceUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:underline break-all flex-1"
+                                            >
+                                                {userData.sourceUrl}
+                                            </a>
+
+                                            <button
+                                                onClick={handleCopy}
+                                                className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-700 transition whitespace-nowrap"
+                                            >
+                                                {copied ? "Copied" : "Copy"}
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            onClick={handleBack}
+                                            className="mb-6 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition font-semibold"
+                                        >
+                                            <ArrowLeftIcon /> Search Another
+                                        </button>
+
+
                                         <img src={userData.previewUrl} alt={`${userData.name || userData.username}'s Profile`} className={`w-36 h-36 rounded-full object-cover border-4 border-white shadow-2xl ${currentTheme.shadow}`} />
 
                                         {userData.name && <h3 className="text-3xl font-bold text-gray-900 mt-6">{userData.name}</h3>}
                                         {displaySubtitle && <p className="text-lg text-gray-500 mt-1">{displaySubtitle}</p>}
 
-                                        <a href={userData.downloadUrl} download target="_blank" rel="noopener noreferrer"
-                                            className="mt-8 inline-flex w-full max-w-xs justify-center items-center gap-2 text-white font-bold py-3 px-8 rounded-lg transition-transform hover:scale-105"
-                                            style={currentTheme.buttonStyle}
-                                        >
-                                            <DownloadIcon /> Download Full Size
-                                        </a>
-                                        <button onClick={handleBack} className="flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition mt-4 font-semibold">
+                                        {platform === "youtube" && userData.thumbnails && (
+                                            <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                                                {userData.thumbnails.map((thumb, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="bg-slate-100 rounded-xl p-4 flex flex-col items-center text-center gap-3"
+                                                    >
+
+                                                        {/* Thumbnail preview */}
+                                                        <img
+                                                            src={thumb.primary}
+                                                            alt={thumb.file}
+                                                            loading="lazy"
+                                                            className="w-full aspect-video object-cover rounded-md border"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = thumb.alternate;
+                                                            }}
+                                                        />
+
+                                                        <span className="text-sm font-semibold">
+                                                            {RESOLUTION_LABELS[thumb.file] || thumb.file}
+                                                        </span>
+
+                                                        <a
+                                                            href={thumb.primary}
+                                                            target="_blank"
+                                                            className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded text-center"
+                                                        >
+                                                            Download Image
+                                                        </a>
+
+                                                        <a
+                                                            href={thumb.alternate}
+                                                            target="_blank"
+                                                            className="w-full px-3 py-2 text-sm bg-slate-700 text-white rounded text-center"
+                                                        >
+                                                            Alternate
+                                                        </a>
+
+                                                    </div>
+
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* <button onClick={handleBack} className="flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition mt-4 font-semibold">
                                             <ArrowLeftIcon /> Search Another
-                                        </button>
+                                        </button> */}
                                     </div>
                                 )}
                             </div>
