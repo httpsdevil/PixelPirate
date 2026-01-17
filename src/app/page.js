@@ -119,6 +119,20 @@ export default function HomePage() {
     const [view, setView] = useState('search');
     const [displaySubtitle, setDisplaySubtitle] = useState("");
     const [copied, setCopied] = useState(false);
+    const [titleCopied, setTitleCopied] = useState(false);
+
+
+    const handleCopyTitle = async () => {
+        try {
+            const cleaned = cleanYouTubeTitle(userData.name);
+            await navigator.clipboard.writeText(cleaned);
+            setTitleCopied(true);
+            setTimeout(() => setTitleCopied(false), 1500);
+        } catch (e) {
+            console.error("Title copy failed", e);
+        }
+    };
+
 
     const handleCopy = async () => {
         try {
@@ -197,6 +211,20 @@ export default function HomePage() {
         setView("search");
     };
 
+
+    function cleanYouTubeTitle(title) {
+        if (!title) return "";
+
+        return title
+            // A|B  → A B  (insert space only when pipe is glued)
+            .replace(/([^\s])\|([^\s])/g, "$1 $2")
+
+            // All other cases: A | B , A| B , A |B → just remove |
+            .replace(/\|/g, "")
+
+            // DO NOT normalize spaces
+            .trim();
+    }
 
 
 
@@ -302,8 +330,32 @@ export default function HomePage() {
 
                                         <img src={userData.previewUrl} alt={`${userData.name || userData.username}'s Profile`} className={`w-36 h-36 rounded-full object-cover border-4 border-white shadow-2xl ${currentTheme.shadow}`} />
 
+                                        {platform === "youtube" && userData.name && userData.thumbnails && (
+                                            <button
+                                                onClick={handleCopyTitle}
+                                                className="mt-4 px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900 transition"
+                                            >
+                                                {titleCopied ? "Title Copied" : "Copy Clean Title"}
+                                            </button>
+                                        )}
+
                                         {userData.name && <h3 className="text-3xl font-bold text-gray-900 mt-6">{userData.name}</h3>}
                                         {displaySubtitle && <p className="text-lg text-gray-500 mt-1">{displaySubtitle}</p>}
+
+                                        {((platform !== "youtube") || (userData.type === "channel")) && userData.downloadUrl && (
+                                            <div className="mt-6 flex flex-col gap-3 w-full max-w-xs">
+                                                <a
+                                                    href={userData.downloadUrl}
+                                                    target="_blank"
+                                                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg text-center font-semibold"
+                                                >
+                                                    Download Image
+                                                </a>
+                                            </div>
+                                        )}
+
+
+
 
                                         {platform === "youtube" && userData.thumbnails && (
                                             <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

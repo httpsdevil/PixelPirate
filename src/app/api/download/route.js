@@ -63,7 +63,7 @@ async function getInstagramImages(username) {
         }
     } catch (error) { console.error(`Final HTML scrape failed for ${username}:`, error.message); return null; }
     if (!previewUrl && !downloadUrl) { return null; }
-    return { previewUrl: previewUrl || downloadUrl, downloadUrl: downloadUrl || previewUrl, username: username, name: name || username };
+    return { previewUrl: previewUrl || downloadUrl, downloadUrl: downloadUrl || previewUrl, username: username, name: name || username, sourceUrl: `https://www.instagram.com/${username}/`, };
 }
 
 async function getPinterestImages(url) {
@@ -89,28 +89,28 @@ async function getPinterestImages(url) {
         if (!imageUrl) return null;
         const previewUrl = imageUrl;
         const downloadUrl = imageUrl.replace(/(\d+|[a-zA-Z]+)x(\d+|[a-zA-Z]+)?(_\w+)?/, 'originals');
-        return { previewUrl, downloadUrl, username, name: name || username };
+        return { previewUrl, downloadUrl, username, name: name || username, sourceUrl: url };
     } catch (e) { console.error("Pinterest fetch failed:", e.message); return null; }
 }
 
 
 const SHORTS_SIZES = [
-  "maxresdefault.jpg",
-  "oardefault.jpg",
-  "oar2.jpg",
-  "oar1.jpg",
-  "oar3.jpg",
-  "oar4.jpg",
-  "sddefault.jpg",
-  "hqdefault.jpg",
-  "mqdefault.jpg",
-  "default.jpg",
-  "0.jpg",
-  "1.jpg",
-  "2.jpg",
-  "3.jpg",
-  "hq720.jpg",
-//   "hq1080.jpg",
+    "maxresdefault.jpg",
+    "oardefault.jpg",
+    "oar2.jpg",
+    "oar1.jpg",
+    "oar3.jpg",
+    "oar4.jpg",
+    "sddefault.jpg",
+    "hqdefault.jpg",
+    "mqdefault.jpg",
+    "default.jpg",
+    "0.jpg",
+    "1.jpg",
+    "2.jpg",
+    "3.jpg",
+    "hq720.jpg",
+    //   "hq1080.jpg",
 ];
 
 
@@ -125,7 +125,7 @@ const VIDEO_SIZES = [
     "2.jpg",
     "3.jpg",
     "hq720.jpg",
-//   "hq1080.jpg",
+    //   "hq1080.jpg",
 ];
 
 
@@ -134,11 +134,62 @@ const VIDEO_SIZES = [
 // =================================================================================
 // *** FINAL, ROBUST YOUTUBE FUNCTION (Fixed Shorts thumbnail & URL normalization) ***
 // =================================================================================
+
+function isYouTubeChannel(url) {
+    return (
+        url.includes("/@") ||
+        url.includes("/channel/") ||
+        url.includes("/c/")
+    );
+}
+
+
 async function getYouTubeImage(url) {
     console.log(`[LOG] YouTube: Starting fetch for URL: ${url}`);
 
-      // ✅ STEP 0: DETECT SHORTS FIRST (BEFORE URL CHANGES)
-  const isShort = url.includes("/shorts/");
+    const isChannel = isYouTubeChannel(url);
+
+    // 🔵 CHANNEL MODE – NO OEMBED, NO THUMBNAILS
+    if (isChannel) {
+        console.log("🟢 YOUTUBE CHANNEL MODE (SCRAPE)");
+
+        const { data: html } = await axios.get(url, {
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            },
+        });
+
+        const $ = cheerio.load(html);
+
+        const name =
+            $("meta[property='og:title']").attr("content") ||
+            $("title").text().replace(" - YouTube", "").trim();
+
+        const imageUrl = $("meta[property='og:image']").attr("content");
+
+        if (!imageUrl) {
+            throw new Error("Channel profile image not found");
+        }
+
+        // 🔥 THIS IS THE PART YOU WERE ASKING ABOUT
+        const handleMatch = url.match(/youtube\.com\/@([^\/]+)/);
+        const handle = handleMatch ? `@${handleMatch[1]}` : null;
+
+        return {
+            platform: "youtube",
+            type: "channel",
+            sourceUrl: url,
+            name,                  // Channel display name
+            username: handle,      // @channelhandle
+            previewUrl: imageUrl,
+            downloadUrl: imageUrl,
+        };
+    }
+
+
+    // ✅ STEP 0: DETECT SHORTS FIRST (BEFORE URL CHANGES)
+    const isShort = url.includes("/shorts/");
 
     // 🔹 NORMALIZE SHORTS URL
     if (url.includes('/shorts/')) {
@@ -189,6 +240,19 @@ async function getYouTubeImage(url) {
             alternate: `https://i.ytimg.com/vi/${videoId}/${file}`,
         }));
 
+        // 🔥 Pick first WORKING thumbnail (maxres → sd → hq → ...)
+        let previewUrl = null;
+        for (const t of thumbnails) {
+            try {
+                await axios.head(t.primary, { timeout: 2000 });
+                previewUrl = t.primary;
+                break;
+            } catch { }
+        }
+
+        // fallback safety
+        if (!previewUrl) previewUrl = thumbnails[0].alternate;
+
         return {
             platform: "youtube",
             isShort,
@@ -196,7 +260,7 @@ async function getYouTubeImage(url) {
             sourceUrl: url,
             name: oembed.name,
             username: oembed.username,
-            previewUrl: thumbnails[0].primary,
+            previewUrl,
             thumbnails,
         };
 
@@ -355,15 +419,49 @@ async function getYouTubeImage(url) {
         }
         console.log(`[LOG] YouTube: Image URL after cleanup: ${imageUrl}`);
 
+        // Extract videoId again
+        const videoIdMatch = url.match(
+            /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/
+        );
+        const videoId = videoIdMatch?.[1];
+
+        // Decide which size list to use
+        const sizes = isShort ? SHORTS_SIZES : VIDEO_SIZES;
+
+        // Build thumbnails array SAME as oEmbed path
+        const thumbnails = sizes.map((file) => ({
+            file,
+            primary: `https://img.youtube.com/vi/${videoId}/${file}`,
+            alternate: `https://i.ytimg.com/vi/${videoId}/${file}`,
+        }));
+
+        // Pick first working thumbnail as preview
+        let previewUrl = null;
+        for (const t of thumbnails) {
+            try {
+                await axios.head(t.primary, { timeout: 2000 });
+                previewUrl = t.primary;
+                break;
+            } catch { }
+        }
+        if (!previewUrl) previewUrl = thumbnails[0].alternate;
+
+        // Final unified result
         const result = {
-            previewUrl: imageUrl,
-            downloadUrl: imageUrl, // For YouTube, preview and download can often be the same best quality
-            username: username || "YouTube", // Fallback if no specific username found
-            name: name || "YouTube Content", // Fallback if no specific name found
+            platform: "youtube",
+            isShort,
+            videoId,
+            sourceUrl: url,
+            name: name || "YouTube Video",    // Fallback if no specific name found
+            username: username || "YouTube",  // Fallback if no specific username found
+            previewUrl,
+            downloadUrl: previewUrl,          // For YouTube, preview and download can often be the same best quality
+            thumbnails,
         };
 
-        console.log('[LOG] YouTube: Returning final object:', result);
+        console.log("🟣 FALLBACK FIXED RESULT:", JSON.stringify(result, null, 2));
         return result;
+
 
     } catch (e) {
         console.error(`[CRITICAL ERROR] YouTube fetch failed for ${url}:`, e.message);
