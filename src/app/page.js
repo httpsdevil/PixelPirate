@@ -286,7 +286,7 @@ export default function HomePage() {
                                             className="h-11 mr-1.5 ml-1.5 px-5 text-white font-semibold transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg flex items-center justify-center"
                                             style={currentTheme.buttonStyle}
                                         >
-                                            {isLoading ? <div className="w-6 h-6 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> : <ArrowRightIcon />}
+                                            {isLoading ? <div className="w-6 h-6 border-2 border-white/50 border-t-white rounded-full animate-spin cursor-pointer"></div> : <ArrowRightIcon />}
                                         </button>
                                     </div>
                                     {error && <p className={`text-red-600 text-center mt-4 bg-red-100 p-3 rounded-lg text-sm shake-error`}>{error}</p>}
