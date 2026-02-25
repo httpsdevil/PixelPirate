@@ -371,7 +371,7 @@ export default function HomePage() {
                                                 {userData.thumbnails.map((thumb, i) => (
                                                     <div
                                                         key={i}
-                                                        className="bg-slate-100 hover:bg-slate-500 rounded-xl p-4 flex flex-col items-center text-center gap-3"
+                                                        className="bg-slate-100 hover:bg-slate-600 hover:text-white rounded-xl p-4 flex flex-col items-center text-center gap-3"
                                                     >
 
                                                         {/* Thumbnail preview */}
